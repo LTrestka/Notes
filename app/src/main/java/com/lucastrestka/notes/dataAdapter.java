@@ -44,7 +44,12 @@ public class dataAdapter extends RecyclerView.Adapter<MyViewHolder> {
         Data data = dataList.get(position);
         holder.title.setText(data.getTitle());
         holder.date_time.setText(data.getTimeStamp());
-        holder.content.setText(data.getContent());
+        if(data.getContent().length() > 80) {
+            holder.content.setText(data.getContent().substring(0, 80) + "...");
+        }
+        else{
+            holder.content.setText(data.getContent());
+        }
     }
 
     @Override

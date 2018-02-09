@@ -1,14 +1,18 @@
 package com.lucastrestka.notes;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.PersistableBundle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.JsonReader;
+import android.util.JsonWriter;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -19,6 +23,14 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Serializable;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -31,22 +43,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private Menu m;
     private RecyclerView recyclerView;
     private dataAdapter mAdapter;
-    private List<Data> dataList = new ArrayList<>();
+    public List<Data> dataList = new ArrayList<>();
     private static final String TAG = "MainActivity";
     int Flag;
 
-//new
+
+    public void doAsynchLoad(){
+        new ASynchTast(this).execute();
+    }
+    public void whenAsynchDone(){
+        recyclerView = (RecyclerView) findViewById(R.id.recycler);
+        mAdapter = new dataAdapter(dataList, this);
+        recyclerView.setAdapter(mAdapter);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+    }
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        recyclerView = (RecyclerView) findViewById(R.id.recycler);
-        mAdapter = new dataAdapter(dataList, this);
-        recyclerView.setAdapter(mAdapter);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        doAsynchLoad();
         Log.d(TAG, "onCreate: main");
     }
+
 
     @Override
     protected void onResume() { // Resets recycler view for updates.
@@ -55,6 +76,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         recyclerView.setAdapter(mAdapter);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         super.onResume();
+    }
+
+
+    @Override
+    protected void onPause() {
+        saveArray(dataList);
+        super.onPause();
     }
 
     @Override
@@ -113,11 +141,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (resultCode == 101){ // Replaces data object inside of existing note.
                 dataList.remove(Flag);
                 dataList.add(0, (Data) data.getSerializableExtra("Changed Data"));
+                onResume();
             }
         }
         if(requestCode == 121){
             if(resultCode == 111){  // creates new object into dataList
                 dataList.add(0,(Data) data.getSerializableExtra("Data"));
+                onResume();
             }
         }
     }
@@ -141,23 +171,78 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    @Override  // saves the datalist array in case of orientation change
-    protected void onSaveInstanceState(Bundle outState) {
-        int num_entries=0;
-        for(int i =0;i<dataList.size();i++) {
-            outState.putSerializable("Data "+i, dataList.get(i));
-            num_entries += 1;
+    public void saveArray(List<Data> dlist){
+        try{
+            FileOutputStream fos = getApplicationContext().openFileOutput(getString(R.string.file_name), Context.MODE_PRIVATE);
+            JsonWriter writer = new JsonWriter(new OutputStreamWriter(fos, getString(R.string.encoder)));
+            writer.setIndent(" ");
+            writer.beginArray();
+            for(Data d: dlist){
+                saveListObject(writer, d);
+            }
+            writer.endArray();
+            writer.close();
+        }catch (Exception e) {
+            e.getStackTrace();
         }
-        outState.putInt("NUMBER_OF_ITEMS", num_entries);
-        super.onSaveInstanceState(outState);
     }
 
-    @Override // recovers datalist in the event of orientation chage
-    protected void onRestoreInstanceState(Bundle savedInstanceState) {
-        super.onRestoreInstanceState(savedInstanceState);
-        int num_entries = savedInstanceState.getInt("NUMBER_OF_ITEMS");
-        for(int i = 0; i<num_entries;i++){
-            dataList.add((Data)savedInstanceState.getSerializable("Data "+i));
+
+    public void saveListObject(JsonWriter writer, Data data) throws IOException{
+        try {
+            writer.beginObject();
+            writer.name("dateTime").value(data.getTimeStamp());
+            writer.name("savedTitle").value(data.getTitle());
+            writer.name("savedContent").value(data.getContent());
+            writer.endObject();
+            Log.d(TAG, "saveArray: Saved an object");
+        } catch (Exception e){
+            e.getStackTrace();
         }
+    }
+    public List<Data> loadList(){   // Loads array
+        List<Data> dlist = new ArrayList<Data>();
+        try{
+            InputStream is = getApplicationContext().openFileInput(getString(R.string.file_name));
+            JsonReader read = new JsonReader(new InputStreamReader(is, getString(R.string.encoder)));
+            read.beginArray();
+            while (read.hasNext()){     // Adds a data object to list by calling saved Data object
+                dlist.add(loadListObject(read));
+            }
+
+        }catch (Exception e){
+            e.getStackTrace();
+        }
+
+        return dlist;
+    }
+
+    public Data loadListObject(JsonReader reader){  // takes an individual object from saved array
+        Data object = new Data();                   // Creates default Data object and sets values
+                                                    // Based on what is saved, then returns it into
+                                                    // dataList object in loadList method.
+        try{
+            reader.beginObject();
+            while(reader.hasNext()){
+                String text = reader.nextName();
+                if(text.equals("dateTime")){
+                    object.setTimesStamp(reader.nextString());
+                }
+                else if(text.equals("savedTitle")){
+                    object.setTitle(reader.nextString());
+                }
+                else if(text.equals("savedContent")){
+                    object.setContent(reader.nextString());
+                }
+                else{
+                    reader.skipValue();
+                }
+            }
+            reader.endObject();
+
+        }catch (Exception e){
+            e.getStackTrace();
+        }
+        return object;
     }
 }

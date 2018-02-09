@@ -9,4 +9,6 @@
     <string name="save">save</string>
     <string name="content">Content</string>
     <string name="title">Title</string>
+    <string name="file_name">dataList.json</string>
+    <string name="encoder">UTF-8</string>
 </resources>
