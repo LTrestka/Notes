@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/infoButton"
+        android:icon="@drawable/ic_info_outline_white_48dp"
+        android:title="@string/info"
+        android:visible="true"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/addNote"
+        android:icon="@drawable/ic_note_add_white_48dp"
+        android:title="@string/add"
+        android:visible="true"
+        app:showAsAction="always" />
+    <item
+        android:id="@+id/saveNote"
+        android:icon="@drawable/ic_save_white_48dp"
+        android:title="@string/save"
+        android:visible="false"
+        app:showAsAction="always" />
+</menu>
